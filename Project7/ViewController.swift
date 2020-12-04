@@ -8,17 +8,39 @@
 import UIKit
 
 class ViewController: UITableViewController {
-    var petitons = [Petition]()
+    var petitions = [Petition]()
+    var filteredPetitions = [Petition]()
+    
+    let searchController = UISearchController(searchResultsController: nil)
+    
+    var isFiltering: Bool {
+        return searchController.isActive && !isSearchBarEmpty
+    }
+    var isSearchBarEmpty: Bool {
+        return searchController.searchBar.text?.isEmpty ?? true
+    }
     
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
+        navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "info.circle"), style: .plain, target: self, action: #selector(showCredits))
+        self.navigationController?.navigationBar.prefersLargeTitles = true
+        
+        searchController.searchResultsUpdater = self
+        searchController.obscuresBackgroundDuringPresentation = false
+        searchController.searchBar.placeholder = "Search Petitions"
+        navigationItem.searchController = searchController
+        definesPresentationContext = true
+        
+        
         let urlString: String
         
         if navigationController?.tabBarItem.tag == 0 {
+            title = "Recent"
             urlString = "https://www.hackingwithswift.com/samples/petitions-1.json"
         } else {
+            title = "Top Rated"
             urlString = "https://www.hackingwithswift.com/samples/petitions-2.json"
         }
         
@@ -34,6 +56,21 @@ class ViewController: UITableViewController {
         showError()
     }
     
+    
+    func filterContentForSearchText(_ searchText: String) {
+        filteredPetitions = petitions.filter { (petition: Petition) -> Bool in
+            return petition.title.lowercased().contains(searchText.lowercased())
+        }
+        
+        tableView.reloadData()
+    }
+    
+    @objc func showCredits() {
+        let ac = UIAlertController(title: "Credits", message: "The data in this application is obtained from the We The People API of the Whitehouse.", preferredStyle: .alert)
+        ac.addAction(UIAlertAction(title: "Dismiss", style: .default, handler: nil))
+        present(ac, animated: true, completion: nil)
+    }
+    
     func showError() {
         let ac = UIAlertController(title: "Loading error", message: "There was a problem loading your feed; please check your connection and try again.", preferredStyle: .alert)
         ac.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
@@ -44,7 +81,7 @@ class ViewController: UITableViewController {
         let decoder = JSONDecoder()
         
         if let jsonPetitions = try? decoder.decode(Petitions.self, from: json) {
-            petitons = jsonPetitions.results
+            petitions = jsonPetitions.results
             tableView.reloadData()
         }
         
@@ -52,12 +89,22 @@ class ViewController: UITableViewController {
 
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return petitons.count
+        if isFiltering {
+            return filteredPetitions.count
+        }
+        
+        return petitions.count
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
-        let petition = petitons[indexPath.row]
+        let petition: Petition
+        if isFiltering {
+            petition = filteredPetitions[indexPath.row]
+        } else {
+            petition = petitions[indexPath.row]
+        }
+        
         cell.textLabel?.text = petition.title
         cell.detailTextLabel?.text  = petition.body
         return cell
@@ -65,8 +112,18 @@ class ViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let vc = DetailViewController()
-        vc.detailItem = petitons[indexPath.row]
+        if isFiltering {
+            vc.detailItem = filteredPetitions[indexPath.row]
+        } else {
+            vc.detailItem = petitions[indexPath.row]
+        }
         navigationController?.pushViewController(vc, animated: true)
     }
 }
 
+extension ViewController: UISearchResultsUpdating {
+    func updateSearchResults(for searchController: UISearchController) {
+        let searchBar = searchController.searchBar
+        filterContentForSearchText(searchBar.text!)
+    }
+}
