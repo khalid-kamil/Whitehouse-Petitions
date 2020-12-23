@@ -33,17 +33,18 @@ class ViewController: UITableViewController {
         navigationItem.searchController = searchController
         definesPresentationContext = true
         
-        
+        performSelector(inBackground: #selector(fetchJSON), with: nil)
+        title = tabBarItem.badgeValue
+    }
+    
+    @objc func fetchJSON() {
         let urlString: String
         
         if navigationController?.tabBarItem.tag == 0 {
-            title = "Recent"
             urlString = "https://www.hackingwithswift.com/samples/petitions-1.json"
         } else {
-            title = "Top Rated"
             urlString = "https://www.hackingwithswift.com/samples/petitions-2.json"
         }
-        
         
         if let url = URL(string: urlString) {
             if let data = try? Data(contentsOf: url) {
@@ -53,7 +54,7 @@ class ViewController: UITableViewController {
             }
         }
         
-        showError()
+        performSelector(onMainThread: #selector(showError), with: nil, waitUntilDone: false)
     }
     
     
@@ -71,23 +72,22 @@ class ViewController: UITableViewController {
         present(ac, animated: true, completion: nil)
     }
     
-    func showError() {
-        let ac = UIAlertController(title: "Loading error", message: "There was a problem loading your feed; please check your connection and try again.", preferredStyle: .alert)
-        ac.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-        present(ac, animated: true, completion: nil)
-    }
-    
     func parse(json: Data) {
         let decoder = JSONDecoder()
         
         if let jsonPetitions = try? decoder.decode(Petitions.self, from: json) {
             petitions = jsonPetitions.results
-            tableView.reloadData()
+            tableView.performSelector(onMainThread: #selector(UITableView.reloadData), with: nil, waitUntilDone: false)
         }
         
     }
-
     
+    @objc func showError() {
+        let ac = UIAlertController(title: "Loading error", message: "There was a problem loading your feed; please check your connection and try again.", preferredStyle: .alert)
+        ac.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+        present(ac, animated: true, completion: nil)
+    }
+
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         if isFiltering {
             return filteredPetitions.count
